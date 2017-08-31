@@ -28,9 +28,14 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.splitContainer = new System.Windows.Forms.SplitContainer();
             this.treeView = new System.Windows.Forms.TreeView();
+            this.treeImages = new System.Windows.Forms.ImageList(this.components);
             this.tableLayoutPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.btnClearList = new System.Windows.Forms.Button();
+            this.btnRetry = new System.Windows.Forms.Button();
             this.btnBackup = new System.Windows.Forms.Button();
             this.btnBackupFolder = new System.Windows.Forms.Button();
             this.tbxBackupFolder = new System.Windows.Forms.TextBox();
@@ -38,8 +43,6 @@
             this.ltvFiles = new System.Windows.Forms.ListView();
             this.chFilePath = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.chStatus = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.btnRetry = new System.Windows.Forms.Button();
-            this.btnClearList = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer)).BeginInit();
             this.splitContainer.Panel1.SuspendLayout();
             this.splitContainer.Panel2.SuspendLayout();
@@ -70,11 +73,24 @@
             // treeView
             // 
             this.treeView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.treeView.ImageIndex = 0;
+            this.treeView.ImageList = this.treeImages;
             this.treeView.Location = new System.Drawing.Point(3, 3);
             this.treeView.Name = "treeView";
+            this.treeView.SelectedImageIndex = 0;
             this.treeView.Size = new System.Drawing.Size(231, 436);
             this.treeView.TabIndex = 0;
             this.treeView.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeView_BeforeExpand);
+            // 
+            // treeImages
+            // 
+            this.treeImages.ImageStream = ((System.Windows.Forms.ImageListStreamer)(resources.GetObject("treeImages.ImageStream")));
+            this.treeImages.TransparentColor = System.Drawing.Color.Transparent;
+            this.treeImages.Images.SetKeyName(0, "a360hub.png");
+            this.treeImages.Images.SetKeyName(1, "a360project.png");
+            this.treeImages.Images.SetKeyName(2, "folder_20x20.png");
+            this.treeImages.Images.SetKeyName(3, "file_16x16.png");
+            this.treeImages.Images.SetKeyName(4, "version_16x16.png");
             // 
             // tableLayoutPanel
             // 
@@ -84,7 +100,7 @@
             this.tableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
             this.tableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
             this.tableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.tableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 29F));
             this.tableLayoutPanel.Controls.Add(this.btnClearList, 3, 2);
             this.tableLayoutPanel.Controls.Add(this.btnRetry, 2, 2);
             this.tableLayoutPanel.Controls.Add(this.btnBackup, 1, 2);
@@ -102,6 +118,28 @@
             this.tableLayoutPanel.Size = new System.Drawing.Size(516, 442);
             this.tableLayoutPanel.TabIndex = 0;
             // 
+            // btnClearList
+            // 
+            this.btnClearList.Dock = System.Windows.Forms.DockStyle.Top;
+            this.btnClearList.Location = new System.Drawing.Point(303, 414);
+            this.btnClearList.Name = "btnClearList";
+            this.btnClearList.Size = new System.Drawing.Size(94, 23);
+            this.btnClearList.TabIndex = 6;
+            this.btnClearList.Text = "Clear list";
+            this.btnClearList.UseVisualStyleBackColor = true;
+            this.btnClearList.Click += new System.EventHandler(this.btnClearList_Click);
+            // 
+            // btnRetry
+            // 
+            this.btnRetry.Dock = System.Windows.Forms.DockStyle.Top;
+            this.btnRetry.Location = new System.Drawing.Point(203, 414);
+            this.btnRetry.Name = "btnRetry";
+            this.btnRetry.Size = new System.Drawing.Size(94, 23);
+            this.btnRetry.TabIndex = 5;
+            this.btnRetry.Text = "Retry";
+            this.btnRetry.UseVisualStyleBackColor = true;
+            this.btnRetry.Click += new System.EventHandler(this.btnRetry_Click);
+            // 
             // btnBackup
             // 
             this.btnBackup.Dock = System.Windows.Forms.DockStyle.Top;
@@ -116,9 +154,10 @@
             // btnBackupFolder
             // 
             this.btnBackupFolder.Dock = System.Windows.Forms.DockStyle.Top;
-            this.btnBackupFolder.Location = new System.Drawing.Point(487, 383);
+            this.btnBackupFolder.Location = new System.Drawing.Point(488, 381);
+            this.btnBackupFolder.Margin = new System.Windows.Forms.Padding(1, 1, 3, 1);
             this.btnBackupFolder.Name = "btnBackupFolder";
-            this.btnBackupFolder.Size = new System.Drawing.Size(26, 20);
+            this.btnBackupFolder.Size = new System.Drawing.Size(25, 23);
             this.btnBackupFolder.TabIndex = 3;
             this.btnBackupFolder.Text = "...";
             this.btnBackupFolder.UseVisualStyleBackColor = true;
@@ -131,7 +170,7 @@
             this.tbxBackupFolder.Location = new System.Drawing.Point(103, 383);
             this.tbxBackupFolder.Name = "tbxBackupFolder";
             this.tbxBackupFolder.ReadOnly = true;
-            this.tbxBackupFolder.Size = new System.Drawing.Size(378, 20);
+            this.tbxBackupFolder.Size = new System.Drawing.Size(381, 20);
             this.tbxBackupFolder.TabIndex = 1;
             this.tbxBackupFolder.Text = "C:\\temp\\A360";
             // 
@@ -171,28 +210,6 @@
             // 
             this.chStatus.Text = "Status";
             // 
-            // btnRetry
-            // 
-            this.btnRetry.Dock = System.Windows.Forms.DockStyle.Top;
-            this.btnRetry.Location = new System.Drawing.Point(203, 414);
-            this.btnRetry.Name = "btnRetry";
-            this.btnRetry.Size = new System.Drawing.Size(94, 23);
-            this.btnRetry.TabIndex = 5;
-            this.btnRetry.Text = "Retry";
-            this.btnRetry.UseVisualStyleBackColor = true;
-            this.btnRetry.Click += new System.EventHandler(this.btnRetry_Click);
-            // 
-            // btnClearList
-            // 
-            this.btnClearList.Dock = System.Windows.Forms.DockStyle.Top;
-            this.btnClearList.Location = new System.Drawing.Point(303, 414);
-            this.btnClearList.Name = "btnClearList";
-            this.btnClearList.Size = new System.Drawing.Size(94, 23);
-            this.btnClearList.TabIndex = 6;
-            this.btnClearList.Text = "Clear list";
-            this.btnClearList.UseVisualStyleBackColor = true;
-            this.btnClearList.Click += new System.EventHandler(this.btnClearList_Click);
-            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -224,6 +241,7 @@
         private System.Windows.Forms.ColumnHeader chStatus;
         private System.Windows.Forms.Button btnClearList;
         private System.Windows.Forms.Button btnRetry;
+        private System.Windows.Forms.ImageList treeImages;
     }
 }
 
