@@ -678,11 +678,10 @@ namespace A360Archiver
             }
         }
 
+        static string invalidChars = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
         public string removeIllegalFilenameCharacters(string fileName)
         {
-            string invalid = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
-
-            foreach (char c in invalid)
+            foreach (char c in invalidChars)
             {
                 // Let's use '_' just to show that a character got replaced
                 fileName = fileName.Replace(c.ToString(), "_");
@@ -703,10 +702,9 @@ namespace A360Archiver
             do
             {
                 node = (MyTreeNode)node.Parent;
-                relPath = "\\" + node.Text + relPath;
+                relPath = "\\" + removeIllegalFilenameCharacters(node.Text) + relPath;
             } while (nodeToDownload != node);
             relPath = relPath.Replace(new string(kUpdateChar, 1), "") + postFix;
-            relPath = removeIllegalFilenameCharacters(relPath);
 
             // Create list item
             var item = new MyListItem(versionNode, tbxBackupFolder.Text + relPath);
