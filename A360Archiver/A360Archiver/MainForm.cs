@@ -51,11 +51,12 @@ namespace A360Archiver
 
         public class MyTreeNode : TreeNode
         {
-            public MyTreeNode(string id, string text, string a360Type, NodeType nodeType)
+            public MyTreeNode(string id, string text, string a360Type, string fileType, NodeType nodeType)
             {
                 this.id = id;
                 this.Text = text;
                 this.a360Type = a360Type;
+                this.fileType = fileType;
                 this.nodeType = nodeType;
                 this.ImageIndex = this.SelectedImageIndex = (int)nodeType;
                 this.nodeState = DownloadState.Default;
@@ -63,13 +64,12 @@ namespace A360Archiver
 
             public bool isFusionFile()
             {
-                return (
-                    a360Type == "versions:autodesk.fusion360:Design" ||
-                    a360Type == "versions:autodesk.fusion360:Drawing");
+                return (a360Type.StartsWith("versions:autodesk.fusion360:"));
             }
 
             public string id;
             public string a360Type;
+            public string fileType;
             public NodeType nodeType;
             public DownloadState nodeState;
         }
@@ -99,7 +99,8 @@ namespace A360Archiver
         private MyTreeNode nodeToDownload;
         private List<MyTreeNode> nodesLoading = new List<MyTreeNode>();
         const char kUpdateChar = '\u21bb';
-        const int kTokenRefreshMultiplier = 9; // should be 900
+        const int kTokenRefreshMultiplier = 900; // should be 900
+        const int kTimeOutDelay = 5000;
         Timer timer = new Timer();
 
         private DialogResult showLogIn()
@@ -241,6 +242,7 @@ namespace A360Archiver
                     hubInfo.Value.links.self.href,
                     hubInfo.Value.attributes.name,
                     hubInfo.Value.attributes.extension.type,
+                    "",
                     NodeType.Hub
                 );
                 addToTreeView(null, hubNode);
@@ -264,6 +266,7 @@ namespace A360Archiver
                     projectInfo.Value.links.self.href,
                     projectInfo.Value.attributes.name,
                     projectInfo.Value.attributes.extension.type,
+                    "",
                     NodeType.Project
                 );
                 addToTreeView(hubNode, projectNode);
@@ -288,6 +291,7 @@ namespace A360Archiver
                     folderInfo.Value.links.self.href,
                     folderInfo.Value.attributes.displayName,
                     folderInfo.Value.attributes.extension.type,
+                    "",
                     NodeType.Folder
                 );
                 addToTreeView(projectNode, folderNode);
@@ -321,7 +325,21 @@ namespace A360Archiver
                 string projectId = idParams[idParams.Length - 3];
 
                 setNodeState(folderNode, true);
-                var contents = await foldersApi.GetFolderContentsAsync(projectId, folderId);
+               
+                dynamic contents = null;
+                while (contents == null)
+                {
+                    try
+                    {
+                        contents = await foldersApi.GetFolderContentsAsync(projectId, folderId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.Print("startDownload >> catch1 : " + ex.Message);
+                        await Task.Delay(kTimeOutDelay);
+                    }
+                }
+
                 foreach (KeyValuePair<string, dynamic> contentInfo in new DynamicDictionaryItems(contents.data))
                 {
                     NodeType nodeType = contentInfo.Value.attributes.extension.type.EndsWith(":Folder") ? NodeType.Folder : NodeType.Item;
@@ -329,6 +347,7 @@ namespace A360Archiver
                         contentInfo.Value.links.self.href,
                         contentInfo.Value.attributes.displayName,
                         contentInfo.Value.attributes.extension.type,
+                        "",
                         nodeType
                     );
                     addToTreeView(folderNode, contentNode);
@@ -366,14 +385,38 @@ namespace A360Archiver
                 string projectId = idParams[idParams.Length - 3];
 
                 setNodeState(itemNode, true);
-                var versions = await itemsApi.GetItemVersionsAsync(projectId, itemId);
+
+                dynamic versions = null;
+                while (versions == null)
+                {
+                    try
+                    {
+                        versions = await itemsApi.GetItemVersionsAsync(projectId, itemId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.Print("startDownload >> catch1 : " + ex.Message);
+                        await Task.Delay(kTimeOutDelay);
+                    }
+                }
+
                 foreach (KeyValuePair<string, dynamic> versionInfo in new DynamicDictionaryItems(versions.data))
                 {
                     string nodeType = versionInfo.Value.attributes.extension.type.EndsWith(":Folder") ? "folder" : "item";
+                    string displayName = versionInfo.Value.attributes.displayName;
+                    var fileType = "";
+                    try
+                    {
+                        fileType = versionInfo.Value.attributes.fileType;
+                        string str = "";
+                    }
+                    catch { }
+                    Debug.Print(displayName + " fileType = " + fileType);
                     MyTreeNode versionNode = new MyTreeNode(
                         versionInfo.Value.links.self.href,
-                        versionInfo.Value.attributes.displayName + " (v" + versionInfo.Value.attributes.versionNumber + ")",
+                        displayName + " (v" + versionInfo.Value.attributes.versionNumber + ")",
                         versionInfo.Value.attributes.extension.type,
+                        fileType,
                         NodeType.Version
                     );
                     versionNode.nodeState = DownloadState.Downloaded;
@@ -389,9 +432,10 @@ namespace A360Archiver
                 }
                 setNodeState(itemNode, false);
             }
-            catch
+            catch (Exception ex)
             {
                 itemNode.nodeState = DownloadState.Failed;
+                // maybe we should do this: setNodeState
             }
         }
 
@@ -470,7 +514,7 @@ namespace A360Archiver
                 {
                     Debug.Print("downloadFile >> catch : " + ex.Message);
                     Debug.Print("downloadFile : retry");
-                    await Task.Delay(1000);
+                    await Task.Delay(kTimeOutDelay);
                 }
             }
         }
@@ -518,7 +562,7 @@ namespace A360Archiver
                             if (json.data[0].attributes.status == "failed")
                                 throw new Exception("f3z generation failed");
 
-                            await Task.Delay(5000);
+                            await Task.Delay(kTimeOutDelay);
                         }
                         else if (json.data[0].type == "downloads")
                         {
@@ -637,6 +681,7 @@ namespace A360Archiver
                     catch (Exception ex)
                     {
                         Debug.Print("startDownload >> catch1 : " + ex.Message);
+                        await Task.Delay(kTimeOutDelay);
                     }
                 }
                 
@@ -693,7 +738,7 @@ namespace A360Archiver
         public MyListItem addFileToList(MyTreeNode versionNode)
         {
             // In case of Fusion files we'll be downloading f3z
-            var postFix = versionNode.isFusionFile() ? ".f3z" : "";
+            var postFix = versionNode.isFusionFile() ? ".f3z" : "." + versionNode.fileType;
 
             // Get relative folder path that we need to recreate on the 
             // local storage side
@@ -704,7 +749,13 @@ namespace A360Archiver
                 node = (MyTreeNode)node.Parent;
                 relPath = "\\" + removeIllegalFilenameCharacters(node.Text) + relPath;
             } while (nodeToDownload != node);
-            relPath = relPath.Replace(new string(kUpdateChar, 1), "") + postFix;
+            relPath = relPath.Replace(new string(kUpdateChar, 1), "");
+
+            // Add file extrension if needed
+            if (postFix != "." && !relPath.EndsWith(postFix) && !relPath.EndsWith(postFix.ToUpper()))
+            {
+                relPath += postFix;
+            }
 
             // Create list item
             var item = new MyListItem(versionNode, tbxBackupFolder.Text + relPath);
@@ -739,7 +790,7 @@ namespace A360Archiver
                 return;
             }
 
-            //btnBackup.Enabled = false;
+            // btnBackup.Enabled = false;
 
             listFolderContents(nodeToDownload, true, true);
         }
