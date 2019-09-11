@@ -18,7 +18,7 @@ namespace A360Archiver
     public partial class LogInForm : Form
     {
         private LogInInfo logInInfo;
-        private CefSharp.WinForms.ChromiumWebBrowser webBrowser;
+        private CefSharp.WinForms.ChromiumWebBrowser webBrowser = null;
 
         public LogInForm(ref LogInInfo info)
         {
@@ -28,7 +28,7 @@ namespace A360Archiver
 
             // Add webBrowser control here instead of in the 
             // UI editor so that the UI editor will work :-/
-            this.webBrowser = new CefSharp.WinForms.ChromiumWebBrowser(null);
+            this.webBrowser = new CefSharp.WinForms.ChromiumWebBrowser((string)"");
             this.webBrowser.Dock = System.Windows.Forms.DockStyle.Fill;
             this.webBrowser.Location = new System.Drawing.Point(3, 124);
             this.webBrowser.MinimumSize = new System.Drawing.Size(20, 20);
