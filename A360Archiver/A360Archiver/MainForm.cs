@@ -555,10 +555,10 @@ namespace A360Archiver
                     if (response.StatusCode == System.Net.HttpStatusCode.OK)
                     {
                         Debug.Print("getF3zUrl >> response.Content : " + response.Content);
-            //dynamic json = SimpleJson.DeserializeObject(response.Content);
-            dynamic json = JsonConvert.DeserializeObject(response.Content);
+                        //dynamic json = SimpleJson.DeserializeObject(response.Content);
+                        dynamic json = JsonConvert.DeserializeObject(response.Content);
 
-            if (json.data[0].type == "jobs")
+                        if (json.data[0].type == "jobs")
                         {
                             // It's still a job so we have to wait
                             if (json.data[0].attributes.status == "failed")
@@ -641,10 +641,10 @@ namespace A360Archiver
                 {
                     Debug.Print("getF3z >> response.Content : " + response.Content);
                     //dynamic json = SimpleJson.DeserializeObject(response.Content);
-          dynamic json = JsonConvert.DeserializeObject(response.Content);
+                    dynamic json = JsonConvert.DeserializeObject(response.Content);
 
-          string str = json.data[0].links.self.href;
-          var url = await getF3zUrl(str);
+                    string str = json.data[0].links.self.href;
+                    var url = await getF3zUrl(str);
 
                     return url;
                 }
