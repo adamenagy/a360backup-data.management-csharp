@@ -15,6 +15,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Reflection;
 using RestSharp;
+using Newtonsoft.Json;
 
 namespace A360Archiver
 {
@@ -554,9 +555,10 @@ namespace A360Archiver
                     if (response.StatusCode == System.Net.HttpStatusCode.OK)
                     {
                         Debug.Print("getF3zUrl >> response.Content : " + response.Content);
-                        dynamic json = SimpleJson.DeserializeObject(response.Content);
-                        
-                        if (json.data[0].type == "jobs")
+            //dynamic json = SimpleJson.DeserializeObject(response.Content);
+            dynamic json = JsonConvert.DeserializeObject(response.Content);
+
+            if (json.data[0].type == "jobs")
                         {
                             // It's still a job so we have to wait
                             if (json.data[0].attributes.status == "failed")
@@ -638,9 +640,11 @@ namespace A360Archiver
                 if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
                 {
                     Debug.Print("getF3z >> response.Content : " + response.Content);
-                    dynamic json = SimpleJson.DeserializeObject(response.Content);
+                    //dynamic json = SimpleJson.DeserializeObject(response.Content);
+          dynamic json = JsonConvert.DeserializeObject(response.Content);
 
-                    var url = await getF3zUrl(json.data[0].links.self.href);
+          string str = json.data[0].links.self.href;
+          var url = await getF3zUrl(str);
 
                     return url;
                 }
