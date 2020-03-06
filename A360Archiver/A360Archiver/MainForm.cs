@@ -24,7 +24,7 @@ namespace A360Archiver
         public Dictionary<DownloadState, Color> downloadStateToColor = new Dictionary<DownloadState, Color>()
         {
             { DownloadState.Default, Color.Empty },
-            { DownloadState.Downloaded, Color.Green },
+            { DownloadState.Downloaded, Color.LightGreen },
             { DownloadState.Downloading, Color.Orange },
             { DownloadState.Failed, Color.Red },
             { DownloadState.Waiting, Color.Yellow }
@@ -100,9 +100,29 @@ namespace A360Archiver
         private MyTreeNode nodeToDownload;
         private List<MyTreeNode> nodesLoading = new List<MyTreeNode>();
         const char kUpdateChar = '\u21bb';
+        const int kItemNumberPerPage = 100;
         const int kTokenRefreshMultiplier = 900; // should be 900
         const int kTimeOutDelay = 5000;
-        Timer timer = new Timer();
+        private Timer timer = new Timer();
+        private RestClient client = new RestClient("https://developer.api.autodesk.com");
+
+        private async Task<IRestResponse> ExecuteTaskAsync(IRestRequest request)
+        {
+            IRestResponse response = null;
+            while (true)
+            {
+                response = await client.ExecuteTaskAsync(request);
+                if ((int)response.StatusCode == 429)
+                {
+                    Debug.Print($"ExecuteTaskAsync : {response.StatusCode}, {response.Headers.ToString()}, {response.Content}");
+                    await Task.Delay(kTimeOutDelay);
+                }
+                else
+                {
+                    return response;
+                }
+            }
+        }
 
         private DialogResult showLogIn()
         {
@@ -130,11 +150,15 @@ namespace A360Archiver
                 return false;
             }
 
+            Debug.Print("refreshToken : Refreshed token...");
+
             return true;
         }
 
         public async void refreshTokenTick(object sender, EventArgs e)
         {
+            Debug.Print("refreshTokenTick : start");
+
             timer.Stop();
 
             while (!await refreshToken());
@@ -142,7 +166,7 @@ namespace A360Archiver
             timer.Interval = (int)logInInfo.expiresIn * kTokenRefreshMultiplier; // do it 10% before it actually expires    
             timer.Start();
 
-            Debug.Print("refreshToken : Refreshed token...");
+            Debug.Print("refreshTokenTick : end");
         }
 
         // This way the file list will not flicker when things change in it
@@ -247,8 +271,30 @@ namespace A360Archiver
                     NodeType.Hub
                 );
                 addToTreeView(null, hubNode);
-                listProjects(hubNode);
+                /*nowait*/listProjects(hubNode);
             }
+        }
+
+        private async Task<dynamic> GetHubProjectsAsync(string hubId, string fullUrl)
+        {
+            Debug.Print($"GetHubProjectsAsync >> hubId : {hubId}, fullUrl : {fullUrl}");
+            string path = (fullUrl != null) ?
+               HttpUtility.UrlDecode((new Uri(fullUrl)).PathAndQuery) :
+                $"/project/v1/hubs/{hubId}/projects?page[number]=0&page[limit]={kItemNumberPerPage}";
+
+            Debug.Print($"GetHubProjectsAsync >> path : {path}");
+            RestRequest request = new RestRequest(path, RestSharp.Method.GET);
+
+            var accessToken = logInInfo.accessToken;
+            request.AddHeader("Authorization", "Bearer " + accessToken);
+
+             
+            IRestResponse response = await ExecuteTaskAsync(request);
+            Debug.Print($"GetHubProjectsAsync >> response.StatusCode : {response.StatusCode.ToString()}, response.Content : {response.Content}, path : {path}");
+
+            dynamic json = JsonConvert.DeserializeObject(response.Content);
+
+            return json;
         }
 
         private async void listProjects(MyTreeNode hubNode)
@@ -260,20 +306,26 @@ namespace A360Archiver
             string hubId = idParams[idParams.Length - 1];
 
             setNodeState(hubNode, true);
-            var projects = await projectsApi.GetHubProjectsAsync(hubId);
-            foreach (KeyValuePair<string, dynamic> projectInfo in new DynamicDictionaryItems(projects.data))
+            string nextUrl = null;
+            do
             {
-                MyTreeNode projectNode = new MyTreeNode(
-                    projectInfo.Value.links.self.href,
-                    projectInfo.Value.attributes.name,
-                    projectInfo.Value.attributes.extension.type,
-                    "",
-                    NodeType.Project
-                );
-                addToTreeView(hubNode, projectNode);
-            }
-            setNodeState(hubNode, false);
+                var projects = await GetHubProjectsAsync(hubId, nextUrl);
+                nextUrl = projects.links.next?.href.Value;
+                foreach (dynamic projectInfo in projects.data)
+                {
+                    MyTreeNode projectNode = new MyTreeNode(
+                        projectInfo.links.self.href.Value,
+                        projectInfo.attributes.name.Value,
+                        projectInfo.attributes.extension.type.Value,
+                        "",
+                        NodeType.Project
+                    );
+                    addToTreeView(hubNode, projectNode);
+                }
+                setNodeState(hubNode, false);
+            } while (nextUrl != null);
         }
+
 
         private async void listTopFolders(MyTreeNode projectNode)
         {
@@ -285,17 +337,29 @@ namespace A360Archiver
             string projectId = idParams[idParams.Length - 1];
 
             setNodeState(projectNode, true);
-            var folders = await projectsApi.GetProjectTopFoldersAsync(hubId, projectId);
-            foreach (KeyValuePair<string, dynamic> folderInfo in new DynamicDictionaryItems(folders.data))
+            while (true)
             {
-                MyTreeNode folderNode = new MyTreeNode(
-                    folderInfo.Value.links.self.href,
-                    folderInfo.Value.attributes.displayName,
-                    folderInfo.Value.attributes.extension.type,
-                    "",
-                    NodeType.Folder
-                );
-                addToTreeView(projectNode, folderNode);
+                try
+                {
+                    dynamic folders = await projectsApi.GetProjectTopFoldersAsync(hubId, projectId);
+                    foreach (KeyValuePair<string, dynamic> folderInfo in new DynamicDictionaryItems(folders.data))
+                    {
+                        MyTreeNode folderNode = new MyTreeNode(
+                            folderInfo.Value.links.self.href,
+                            folderInfo.Value.attributes.displayName,
+                            folderInfo.Value.attributes.extension.type,
+                            "",
+                            NodeType.Folder
+                        );
+                        addToTreeView(projectNode, folderNode);
+                    }
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Debug.Print("listTopFolders >> GetProjectTopFoldersAsync : " + ex.Message);
+                    await Task.Delay(kTimeOutDelay);
+                }
             }
             setNodeState(projectNode, false);
         }
@@ -328,39 +392,49 @@ namespace A360Archiver
                 setNodeState(folderNode, true);
                
                 dynamic contents = null;
+                int pageNumber = 0;
                 while (contents == null)
                 {
                     try
                     {
-                        contents = await foldersApi.GetFolderContentsAsync(projectId, folderId);
+                        contents = await foldersApi.GetFolderContentsAsync(projectId, folderId, null, null, null, pageNumber);
+
+                        foreach (KeyValuePair<string, dynamic> contentInfo in new DynamicDictionaryItems(contents.data))
+                        {
+                            NodeType nodeType = contentInfo.Value.attributes.extension.type.EndsWith(":Folder") ? NodeType.Folder : NodeType.Item;
+                            MyTreeNode contentNode = new MyTreeNode(
+                                contentInfo.Value.links.self.href,
+                                contentInfo.Value.attributes.displayName,
+                                contentInfo.Value.attributes.extension.type,
+                                "",
+                                nodeType
+                            );
+                            addToTreeView(folderNode, contentNode);
+                            if (isRecursive)
+                            {
+                                if (contentNode.nodeType == NodeType.Folder)
+                                    listFolderContents(contentNode, isForDownload, isRecursive);
+                                else if (contentNode.nodeType == NodeType.Item)
+                                    listItemVersions(contentNode, isForDownload);
+                            }
+
+                        }
+
+                        try
+                        {
+                            var t = contents.links.next;
+                            pageNumber++;
+                            contents = null;
+                        }
+                        catch { }
                     }
                     catch (Exception ex)
                     {
-                        Debug.Print("startDownload >> catch1 : " + ex.Message);
+                        Debug.Print("listFolderContents >> GetFolderContentsAsync : " + ex.Message);
                         await Task.Delay(kTimeOutDelay);
                     }
                 }
 
-                foreach (KeyValuePair<string, dynamic> contentInfo in new DynamicDictionaryItems(contents.data))
-                {
-                    NodeType nodeType = contentInfo.Value.attributes.extension.type.EndsWith(":Folder") ? NodeType.Folder : NodeType.Item;
-                    MyTreeNode contentNode = new MyTreeNode(
-                        contentInfo.Value.links.self.href,
-                        contentInfo.Value.attributes.displayName,
-                        contentInfo.Value.attributes.extension.type,
-                        "",
-                        nodeType
-                    );
-                    addToTreeView(folderNode, contentNode);
-                    if (isRecursive)
-                    {
-                        if (contentNode.nodeType == NodeType.Folder)
-                            listFolderContents(contentNode, isForDownload, isRecursive);
-                        else if (contentNode.nodeType == NodeType.Item)
-                            listItemVersions(contentNode, isForDownload);
-                    }
-
-                }
                 setNodeState(folderNode, false);
             }
         }
@@ -396,7 +470,7 @@ namespace A360Archiver
                     }
                     catch (Exception ex)
                     {
-                        Debug.Print("startDownload >> catch1 : " + ex.Message);
+                        Debug.Print("listItemVersions >> GetItemVersionsAsync : " + ex.Message);
                         await Task.Delay(kTimeOutDelay);
                     }
                 }
@@ -409,7 +483,7 @@ namespace A360Archiver
                     try
                     {
                         fileType = versionInfo.Value.attributes.fileType;
-                        string str = "";
+                        //string str = "";
                     }
                     catch { }
                     Debug.Print(displayName + " fileType = " + fileType);
@@ -436,6 +510,8 @@ namespace A360Archiver
             catch (Exception ex)
             {
                 itemNode.nodeState = DownloadState.Failed;
+
+                Debug.Print("listItemVersions >> catch : " + ex.Message);
                 // maybe we should do this: setNodeState
             }
         }
@@ -530,7 +606,7 @@ namespace A360Archiver
             Debug.Print("getUrl >> accessToken : " + accessToken);
             request.AddHeader("Authorization", "Bearer " + accessToken);
 
-            IRestResponse response = await client.ExecuteTaskAsync(request);
+            IRestResponse response = await ExecuteTaskAsync(request);
 
             Debug.Print("getUrl >> request.Resource : " + request.Resource);
 
@@ -624,7 +700,6 @@ namespace A360Archiver
                 "}" +
             "}";
 
-            RestClient client = new RestClient("https://developer.api.autodesk.com");
             RestRequest request = new RestRequest(path, RestSharp.Method.POST);
 
             // Now download the file
@@ -635,7 +710,7 @@ namespace A360Archiver
 
             try
             {
-                IRestResponse response = await client.ExecuteTaskAsync(request);
+                IRestResponse response = await ExecuteTaskAsync(request);
 
                 if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
                 {
@@ -684,7 +759,7 @@ namespace A360Archiver
                     }
                     catch (Exception ex)
                     {
-                        Debug.Print("startDownload >> catch1 : " + ex.Message);
+                        Debug.Print("startDownload >> GetVersionAsync : " + ex.Message);
                         await Task.Delay(kTimeOutDelay);
                     }
                 }
@@ -707,7 +782,7 @@ namespace A360Archiver
                     }
                     catch (Exception ex)
                     {
-                        Debug.Print("startDownload >> catch2 : " + ex.Message);
+                        Debug.Print("startDownload >> get storage.meta.link.href : " + ex.Message);
                     }
                 }
 

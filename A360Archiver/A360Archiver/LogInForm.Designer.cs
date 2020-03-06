@@ -42,13 +42,13 @@
             this.panel.SuspendLayout();
             this.SuspendLayout();
             // 
-            // webBrowser
+            // webPanel
             // 
             this.webPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.webPanel.Location = new System.Drawing.Point(3, 124);
             this.webPanel.MinimumSize = new System.Drawing.Size(20, 20);
             this.webPanel.Name = "webPanel";
-            this.webPanel.Size = new System.Drawing.Size(557, 227);
+            this.webPanel.Size = new System.Drawing.Size(557, 398);
             this.webPanel.TabIndex = 0;
             // 
             // tableLayoutPanel
@@ -63,7 +63,7 @@
             this.tableLayoutPanel.RowCount = 2;
             this.tableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 121F));
             this.tableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel.Size = new System.Drawing.Size(563, 354);
+            this.tableLayoutPanel.Size = new System.Drawing.Size(563, 525);
             this.tableLayoutPanel.TabIndex = 1;
             // 
             // panel
@@ -149,16 +149,16 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(563, 354);
-            this.ControlBox = true;
+            this.ClientSize = new System.Drawing.Size(563, 525);
             this.Controls.Add(this.tableLayoutPanel);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
             this.Name = "LogInForm";
             this.Text = "Log In";
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
             this.tableLayoutPanel.ResumeLayout(false);
             this.panel.ResumeLayout(false);
             this.panel.PerformLayout();
             this.ResumeLayout(false);
+
         }
 
         #endregion
